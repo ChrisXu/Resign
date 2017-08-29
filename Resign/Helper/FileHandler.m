@@ -880,7 +880,10 @@ static FileHandler *istance;
 		NSTask *codesignTask = [[NSTask alloc] init];
 		[codesignTask setLaunchPath:@"/usr/bin/codesign"];
 		[codesignTask setArguments:@[@"-f", @"-s", currentCertificate, self.appPath, [NSString stringWithFormat:@"--entitlements=%@", entitlementsPath]]];
-		[NSTimer scheduledTimerWithTimeInterval:1.0 target:self selector:@selector(checkCodesigning:) userInfo:@{@"task": codesignTask} repeats:TRUE];
+        codesignTask.terminationHandler = ^(NSTask *task) {
+            if (logBlock) logBlock(@"Codesigning done");
+            [self verifySignature];
+        };
 		NSPipe *pipe = [NSPipe pipe];
 		[codesignTask setStandardOutput:pipe];
 		[codesignTask setStandardError:pipe];
@@ -888,20 +891,6 @@ static FileHandler *istance;
 		[codesignTask launch];
 		[NSThread detachNewThreadSelector:@selector(watchCodesigning:)
 								 toTarget:self withObject:handle];
-	}
-}
-
-- (void)checkCodesigning:(NSTimer *)timer
-{
-	// Check if the code signing task finished: if yes invalidate the timer and do some operations
-	NSTask *codesignTask = timer.userInfo[@"task"];
-	if ([codesignTask isRunning] == 0)
-	{
-		[timer invalidate];
-		codesignTask = nil;
-		if (logBlock)
-			logBlock(@"Codesigning done");
-		[self verifySignature];
 	}
 }
 
